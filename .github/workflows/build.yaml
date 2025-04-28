@@ -1,0 +1,38 @@
+name: Publish docker image
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Tag to release (e.g. v1.2.3)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+    build:
+        runs-on: ubuntu-latest
+        if: startsWith(github.event.inputs.release_tag, 'v')
+        steps:
+        - name: Checkout
+          uses: actions/checkout@v4
+        - name: Validate tag format
+          run: |
+            TAG=${{ github.event.inputs.release_tag }}
+            if ! echo "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+              echo "❌ Invalid tag format: $TAG"
+              exit 1
+            fi
+            echo "✅ Valid semver tag: $TAG"
+        - name: install docker emulation
+          run: docker run --rm --privileged tonistiigi/binfmt:latest --install amd64,arm64
+        - name: Set up buildx
+          uses: docker/setup-buildx-action@v3
+        - name: Login to ghcr.io
+          run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+        - name: Build and push
+          run: |
+            docker buildx build --platform linux/amd64,linux/arm64 -t $(echo 'ghcr.io/${{ github.repository }}:${{ github.event.inputs.release_tag }}' | tr '[:upper:]' '[:lower:]') --push .
