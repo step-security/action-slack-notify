@@ -26,6 +26,7 @@ RUN apk update \
 	&& apk add \
 		bash \
 		jq \
+		curl \
 		ca-certificates \
 		python3 \
 		py3-pip \
